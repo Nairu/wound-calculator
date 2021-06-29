@@ -3,6 +3,7 @@ from pywebio.output import *
 from pywebio import pin
 from pywebio import start_server
 from roller import *
+import os
 
 def print_header():
     return put_column([
@@ -59,4 +60,4 @@ def app():
             print_wounds(base_info)
 
 if __name__ == '__main__':
-    start_server(app, debug=True, port='80')
+    start_server(app, port=os.environ.get('PORT', 8080))

@@ -59,4 +59,4 @@ def app():
             print_wounds(base_info)
 
 if __name__ == '__main__':
-    start_server(app, debug=True, port='44315')
+    start_server(app, debug=True, port='8080')

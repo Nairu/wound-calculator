@@ -4,6 +4,37 @@ from pywebio import pin
 from pywebio import start_server
 from roller import *
 import os
+import math
+import statistics
+
+from cutecharts.charts import Bar
+from cutecharts.faker import Faker
+
+def create_chart(values: list, buckets: int):
+    # Divvy the values up into buckets.
+    minval = max(min(values)-1, 0)
+    maxval = max(values)+1
+    width = maxval - minval
+    step = width / buckets
+    if step < 1:
+        step = 1
+
+    labels = []
+    counts = []
+    for i in range(buckets):
+        # We go to less than 1 bucket because we're going to get the upper and lower bounds.
+        lower_bound = math.floor(minval + (i * step))
+        upper_bound = math.floor(minval + ((i + 1) * step))
+        label = f"{lower_bound}-{upper_bound}"
+        # Get the sum as a percentage.
+        count = (sum(i >= lower_bound and i < upper_bound for i in values)/len(values)) * 100
+        labels.append(label)
+        counts.append(round(count, 2))
+
+    chart = Bar("Distribution of Rolls")
+    chart.set_options(labels=labels, x_label="Bucket", y_label="Ocurrences")
+    chart.add_series("Count", counts)
+    return chart
 
 def print_header():
     return put_column([
@@ -13,25 +44,43 @@ wounds generated for that spread and number of shots.")
     ])
 
 def print_wounds(roll_info):
-    wounds = get_number_of_wounds(roll_info['quality'], 
-                                roll_info['defence'], 
-                                roll_info['shots'], 
-                                roll_info['piercing'], 
-                                roll_info['regen'] == "Yes", 
-                                roll_info['explode'] == "Yes")
-    put_markdown(f"# Number of wounds: {wounds}")
+    wounds = 0
+    if (roll_info['method'] == 'Probability'):
+        wounds = get_number_of_wounds(roll_info['quality'], 
+                                    roll_info['defence'], 
+                                    roll_info['shots'], 
+                                    roll_info['piercing'], 
+                                    roll_info['regen'] == "Yes", 
+                                    roll_info['explode'] == "Yes")
+        put_markdown(f"# Number of wounds: {wounds}")
+    else:
+        # Estimate it by running the numbers through a random generator and seeing what comes out.
+        wounds = get_number_of_wounds_randomly_x_times_list(roll_info['quality'], 
+                                    roll_info['defence'], 
+                                    roll_info['shots'], 
+                                    roll_info['piercing'], 
+                                    roll_info['regen'] == "Yes", 
+                                    roll_info['explode'] == "Yes",
+                                    10000)
+        # Get the median, as its less prone to outliers.
+        put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
+        put_html(create_chart(wounds, 5).render_notebook())
 
 def put_inputs(roll_info):
+    return [
     put_row([
         pin.put_select(label="Attacker Quality: ", options=[2,3,4,5,6], name="quality", value=roll_info['quality']), None,
         pin.put_select(label="Defender Defence: ", options=[2,3,4,5,6], name="defence", value=roll_info['defence']), None,
         pin.put_input(label="Number of shots: ", type=NUMBER, name="shots", value=roll_info['shots'])
-    ])
+    ]),
     put_row([
         pin.put_select(label="AP: ", options=[0, 1, 2, 3, 4, 5, 6], name="piercing", value=roll_info['piercing']), None,
         pin.put_radio(label="Regenarator?", options=["No", "Yes"], name="regen", value=roll_info['regen'], inline = True), None,
         pin.put_radio(label="Explode?", options=["No", "Yes"], name="explode", value=roll_info['explode'], inline = True)
-    ])
+    ]),
+    put_row([
+        pin.put_radio(label="Calculation Method: ", name="method", options=["Probability", "Simulate"], value="Probability"), None
+    ])]
 
 def update_inputs(info, input):
     if input['name'] == 'shots':
@@ -47,14 +96,15 @@ def app():
         "shots": 10,
         "piercing": 0,
         "regen": "No",
-        "explode": "No"
+        "explode": "No",
+        "method": "Probability"
     }
 
     put_row(print_header())
-    put_inputs(base_info)
+    put_collapse("Inputs", put_inputs(base_info))
     #put_row([put_column(print_header()), put_column(put_inputs(base_info))])
     while True:
-        new_val = pin.pin_wait_change(["quality", "defence", "shots", "piercing", "regen", "explode"])
+        new_val = pin.pin_wait_change(["quality", "defence", "shots", "piercing", "regen", "explode", "method", "run"])
         with use_scope("wounds", clear=True):
             update_inputs(base_info, new_val)
             print_wounds(base_info)

@@ -1,4 +1,5 @@
 import argparse
+import random
 
 def get_probability_n_or_more(n) -> float:
     return (6-n)/6 + 1/6
@@ -41,6 +42,41 @@ def get_number_of_wounds(quality, defence, shots, piercing=0, regenerator=False,
     if regenerator:
         dead = get_number_of_failed_regenerations(5, dead)
     return dead
+
+def get_number_of_wounds_randomly(quality, defence, shots, piercing=0, regenerator=False, explode=False):
+    # First calculate the number of hits.
+    num_hits = 0
+    for i in range(shots):
+        roll = random.randint(1, 6)
+        if roll == 6 and explode:
+            num_hits += 3
+        elif roll >= quality:
+            num_hits += 1
+    
+    # We have the number of hits. Now get the number of failed rolls.
+    wounds = 0
+    for i in range(num_hits):
+        roll = random.randint(1, 6)
+        target = min(6, defence + piercing)
+        if roll < target:
+            # Check for the regenerator.
+            if regenerator:
+                regen_roll = random.randint(1, 6)
+                wounds += 1 if regen_roll < 5 else 0
+            else:
+                wounds += 1
+    
+    return wounds
+
+def get_number_of_wounds_randomly_x_times(quality, defence, shots, piercing=0, regenerator=False, explode=False, repeat=5):
+    total_wounds = 0
+    for i in range(repeat):
+        total_wounds += get_number_of_wounds_randomly(quality, defence, shots, piercing, regenerator, explode)
+    total_wounds = total_wounds / repeat
+    return int(round(total_wounds))
+
+def get_number_of_wounds_randomly_x_times_list(quality, defence, shots, piercing=0, regenerator=False, explode=False, repeat=5):
+    return [int(get_number_of_wounds_randomly(quality, defence, shots, piercing, regenerator, explode)) for i in range(repeat)]
 
 if __name__ == "__main__":
     parser = init_argparse()

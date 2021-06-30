@@ -10,6 +10,17 @@ import statistics
 from cutecharts.charts import Bar
 from cutecharts.faker import Faker
 
+base_info = {
+    "quality": 4,
+    "defence": 4,
+    "shots": 10,
+    "piercing": 0,
+    "regen": "No",
+    "explode": "No",
+    "method": "Probability",
+    "buckets": 5
+}
+
 def create_chart(values: list, buckets: int):
     # Divvy the values up into buckets.
     minval = max(min(values)-1, 0)
@@ -32,7 +43,7 @@ def create_chart(values: list, buckets: int):
         counts.append(round(count, 2))
 
     chart = Bar("Distribution of Rolls")
-    chart.set_options(labels=labels, x_label="Bucket", y_label="Ocurrences")
+    chart.set_options(labels=labels, x_label="Wounds (buckets)", y_label="Ocurrences %")
     chart.add_series("Count", counts)
     return chart
 
@@ -54,6 +65,9 @@ def print_wounds(roll_info):
                                     roll_info['explode'] == "Yes")
         put_markdown(f"# Number of wounds: {wounds}")
     else:
+        with use_scope('graph', clear=True):
+            put_row([None, put_loading(), None], size='50%')
+        
         # Estimate it by running the numbers through a random generator and seeing what comes out.
         wounds = get_number_of_wounds_randomly_x_times_list(roll_info['quality'], 
                                     roll_info['defence'], 
@@ -62,9 +76,11 @@ def print_wounds(roll_info):
                                     roll_info['regen'] == "Yes", 
                                     roll_info['explode'] == "Yes",
                                     10000)
-        # Get the median, as its less prone to outliers.
-        put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
-        put_html(create_chart(wounds, 5).render_notebook())
+        
+        with use_scope('graph', clear=True):
+            # Get the median, as its less prone to outliers.
+            put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
+            put_html(create_chart(wounds, roll_info['buckets']).render_notebook())
 
 def put_inputs(roll_info):
     return [
@@ -79,35 +95,42 @@ def put_inputs(roll_info):
         pin.put_radio(label="Explode?", options=["No", "Yes"], name="explode", value=roll_info['explode'], inline = True)
     ]),
     put_row([
-        pin.put_radio(label="Calculation Method: ", name="method", options=["Probability", "Simulate"], value="Probability"), None
+        pin.put_radio(label="Calculation Method: ", name="method", options=["Probability", "Simulate"], value="Probability"), None,
+        pin.put_input(label="Histogram Buckets: ", name="buckets", type=NUMBER, value=5), None,
+        put_buttons(buttons=["Reload"], onclick=update_scope_new)
     ])]
 
 def update_inputs(info, input):
     if input['name'] == 'shots':
         if not input['value'] or input['value'] == None:
             input['value'] = 0
+    
+    if input['name'] == 'buckets':
+        if not input['value'] or input['value'] == None:
+            input['value'] = 1
 
     info[input['name']] = input['value']
 
-def app():
-    base_info = {
-        "quality": 4,
-        "defence": 4,
-        "shots": 10,
-        "piercing": 0,
-        "regen": "No",
-        "explode": "No",
-        "method": "Probability"
-    }
+def update_scope(new_val):
+    with use_scope("wounds", clear=True):
+        update_inputs(base_info, new_val)
+        print_wounds(base_info)
 
+def update_scope_new(button):
+    with use_scope("wounds", clear=True):
+        shots_val = pin.pin['shots']
+        buckets_val = pin.pin['buckets']
+        update_inputs(base_info, {'name': 'shots', 'value': shots_val})
+        update_inputs(base_info, {'name': 'buckets', 'value': buckets_val})
+        print_wounds(base_info)
+
+def app():
     put_row(print_header())
-    put_collapse("Inputs", put_inputs(base_info))
+    put_collapse("Inputs", put_inputs(base_info), open=True)
     #put_row([put_column(print_header()), put_column(put_inputs(base_info))])
     while True:
-        new_val = pin.pin_wait_change(["quality", "defence", "shots", "piercing", "regen", "explode", "method", "run"])
-        with use_scope("wounds", clear=True):
-            update_inputs(base_info, new_val)
-            print_wounds(base_info)
+        new_val = pin.pin_wait_change(["quality", "defence", "piercing", "regen", "explode", "method"])
+        update_scope(new_val)
 
 if __name__ == '__main__':
     start_server(app, port=os.environ.get('PORT', 8080))

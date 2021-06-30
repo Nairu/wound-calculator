@@ -97,8 +97,7 @@ def put_inputs(roll_info):
     ]),
     put_row([
         pin.put_radio(label="Calculation Method: ", name="method", options=["Probability", "Simulate"], value="Probability"), None,
-        pin.put_input(label="Histogram Buckets: ", name="buckets", type=NUMBER, value=5), None,
-        put_buttons(buttons=["Reload"], onclick=update_scope_new)
+        pin.put_input(label="Histogram Buckets: ", name="buckets", type=NUMBER, value=5), None
     ])]
 
 def update_inputs(info, input):
@@ -118,20 +117,30 @@ def update_scope(new_val):
         print_wounds(base_info)
 
 def update_scope_new(button):
+    with use_scope("buttons", clear=True):
+        put_buttons(buttons=["Reload"], onclick=update_scope_new, scope="buttons", outline=True)
+
     with use_scope("wounds", clear=True):
-        shots_val = pin.pin['shots']
-        buckets_val = pin.pin['buckets']
-        update_inputs(base_info, {'name': 'shots', 'value': shots_val})
-        update_inputs(base_info, {'name': 'buckets', 'value': buckets_val})
+        update_inputs(base_info, {'name': 'quality', 'value': pin.pin['quality']})
+        update_inputs(base_info, {'name': 'defence', 'value': pin.pin['defence']})
+        update_inputs(base_info, {'name': 'piercing', 'value': pin.pin['piercing']})
+        update_inputs(base_info, {'name': 'regen', 'value': pin.pin['regen']})
+        update_inputs(base_info, {'name': 'explode', 'value': pin.pin['explode']})
+        update_inputs(base_info, {'name': 'method', 'value': pin.pin['method']})
+        update_inputs(base_info, {'name': 'shots', 'value': pin.pin['shots']})
+        update_inputs(base_info, {'name': 'buckets', 'value': pin.pin['buckets']})
         print_wounds(base_info)
 
 def app():
     put_row(print_header())
-    put_collapse("Inputs", put_inputs(base_info), open=True)
-    #put_row([put_column(print_header()), put_column(put_inputs(base_info))])
+    put_collapse("Input", put_inputs(base_info), open=True)
+    with use_scope("buttons", clear=True):
+        put_buttons(buttons=["Reload"], onclick=update_scope_new, scope="buttons", outline=True)
+
     while True:
-        new_val = pin.pin_wait_change(["quality", "defence", "piercing", "regen", "explode", "method"])
-        update_scope(new_val)
+        new_val = pin.pin_wait_change(["quality", "defence", "piercing", "regen", "explode", "method", "shots", "buckets"])
+        with use_scope("buttons", clear=True):
+            put_buttons(buttons=["Reload"], onclick=update_scope_new, scope="buttons", outline=False)
 
 if __name__ == '__main__':
     start_server(app, port=os.environ.get('PORT', 8080))

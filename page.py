@@ -42,7 +42,7 @@ def create_chart(values: list, buckets: int):
         labels.append(label)
         counts.append(round(count, 2))
 
-    chart = Bar("Distribution of Rolls")
+    chart = Bar("Distribution of Rolls", width="100%", height="100%")
     chart.set_options(labels=labels, x_label="Wounds (buckets)", y_label="Ocurrences %")
     chart.add_series("Count", counts)
     return chart
@@ -80,7 +80,8 @@ def print_wounds(roll_info):
         with use_scope('graph', clear=True):
             # Get the median, as its less prone to outliers.
             put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
-            put_html(create_chart(wounds, roll_info['buckets']).render_notebook())
+            chart = create_chart(wounds, roll_info['buckets'])
+            put_html(chart.render_notebook())
 
 def put_inputs(roll_info):
     return [

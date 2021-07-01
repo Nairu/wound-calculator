@@ -21,7 +21,8 @@ base_info = {
     "reroll": 0,
     "deadly": 1,
     "blast": 1,
-    "cover": "None"
+    "cover": "None",
+    "reload": False
 }
 
 def cover_to_number(cover_str):
@@ -137,6 +138,7 @@ def update_scope(new_val):
 
 def update_scope_new(button):
     print_header(True)
+    base_info['reload'] = False
 
     with use_scope("wounds", clear=True):
         update_inputs(base_info, {'name': 'quality', 'value': pin.pin['quality']})
@@ -158,7 +160,9 @@ def app():
 
     while True:
         new_val = pin.pin_wait_change(["quality", "defence", "piercing", "regen", "explode", "shots", "buckets", "cover", "reroll", "blast", "deadly"])
-        print_header(False)
+        if base_info['reload'] == False:
+            print_header(False)
+            base_info['reload'] = True
 
 if __name__ == '__main__':
-    start_server(app, port=os.environ.get('PORT', 8080))
+    start_server(app, port=os.environ.get('PORT', 8080), reconnect_timeout=600)

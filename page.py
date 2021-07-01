@@ -94,7 +94,7 @@ def print_wounds(roll_info):
     
     with use_scope('graph', clear=True):
         # Get the median, as its less prone to outliers.
-        put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
+        put_markdown(f"# Average number of wounds: {round(statistics.mean(wounds), 1)}")
         chart = create_chart(wounds, roll_info['buckets'])
         put_html(chart.render_notebook())
 

@@ -17,9 +17,20 @@ base_info = {
     "piercing": 0,
     "regen": "No",
     "explode": "No",
-    "method": "Probability",
-    "buckets": 5
+    "buckets": 5,
+    "reroll": 0,
+    "deadly": 1,
+    "blast": 1,
+    "cover": "None"
 }
+
+def cover_to_number(cover_str):
+    if cover_str == "None":
+        return 0
+    elif cover_str == "Light":
+        return 1
+    elif cover_str == "Heavy":
+        return 2
 
 def create_chart(values: list, buckets: int):
     # Divvy the values up into buckets.
@@ -47,57 +58,65 @@ def create_chart(values: list, buckets: int):
     chart.add_series("Count", counts)
     return chart
 
-def print_header():
-    return put_column([
-        put_markdown("## Wound Calculator"),
-        put_text("A simple app that allows you to input some OPR stats, and calculates the average number of \
-wounds generated for that spread and number of shots.")
-    ])
+def print_header(button_outline=False):
+    with use_scope('header', clear=True):
+        put_column([put_row([put_markdown("## Wound Calculator"), None, put_buttons(buttons=["Reload"], onclick=update_scope_new, outline=button_outline).style('align-self: center; justify-self: right;')], \
+    size='70% 5% 25%'), put_text("A simple app that allows you to input some OPR stats, and calculates the average number of \
+wounds generated for that spread and number of attacks.")])
 
 def print_wounds(roll_info):
     wounds = 0
-    if (roll_info['method'] == 'Probability'):
-        wounds = get_number_of_wounds(roll_info['quality'], 
-                                    roll_info['defence'], 
-                                    roll_info['shots'], 
-                                    roll_info['piercing'], 
-                                    roll_info['regen'] == "Yes", 
-                                    roll_info['explode'] == "Yes")
-        put_markdown(f"# Number of wounds: {wounds}")
-    else:
-        with use_scope('graph', clear=True):
-            put_row([None, put_loading(), None], size='50%')
-        
-        # Estimate it by running the numbers through a random generator and seeing what comes out.
-        wounds = get_number_of_wounds_randomly_x_times_list(roll_info['quality'], 
-                                    roll_info['defence'], 
-                                    roll_info['shots'], 
-                                    roll_info['piercing'], 
-                                    roll_info['regen'] == "Yes", 
-                                    roll_info['explode'] == "Yes",
-                                    10000)
-        
-        with use_scope('graph', clear=True):
-            # Get the median, as its less prone to outliers.
-            put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
-            chart = create_chart(wounds, roll_info['buckets'])
-            put_html(chart.render_notebook())
+    # if (roll_info['method'] == 'Probability'):
+    #     wounds = get_number_of_wounds(roll_info['quality'], 
+    #                                 roll_info['defence'], 
+    #                                 roll_info['shots'], 
+    #                                 roll_info['piercing'], 
+    #                                 roll_info['regen'] == "Yes", 
+    #                                 roll_info['explode'] == "Yes")
+    #     put_markdown(f"# Number of wounds: {wounds}")
+    # else:
+    with use_scope('graph', clear=True):
+        put_row([None, put_loading(), None], size='50%')
+    
+    # Estimate it by running the numbers through a random generator and seeing what comes out.
+    wounds = get_number_of_wounds_randomly_x_times_list(roll_info['quality'], 
+                                roll_info['defence'], 
+                                roll_info['shots'], 
+                                roll_info['piercing'], 
+                                roll_info['regen'] == "Yes", 
+                                roll_info['explode'] == "Yes",
+                                cover_to_number(roll_info['cover']),
+                                roll_info['reroll'],
+                                roll_info['blast'],
+                                roll_info['deadly'],
+                                10000)
+    
+    with use_scope('graph', clear=True):
+        # Get the median, as its less prone to outliers.
+        put_markdown(f"# Average number of wounds: {statistics.median(wounds)}")
+        chart = create_chart(wounds, roll_info['buckets'])
+        put_html(chart.render_notebook())
 
 def put_inputs(roll_info):
     return [
     put_row([
-        pin.put_select(label="Attacker Quality: ", options=[2,3,4,5,6], name="quality", value=roll_info['quality']), None,
-        pin.put_select(label="Defender Defence: ", options=[2,3,4,5,6], name="defence", value=roll_info['defence']), None,
-        pin.put_input(label="Number of shots: ", type=NUMBER, name="shots", value=roll_info['shots'])
+        pin.put_select(label="Attacker Quality: ", options=[2,3,4,5,6], name="quality", value=roll_info['quality'], help_text='The effective quality of the attacking units.'), None,
+        pin.put_select(label="Defender Defence: ", options=[2,3,4,5,6], name="defence", value=roll_info['defence'], help_text='The unmodified defence of the defending units.'), None,
+        pin.put_input(label="Number of attacks: ", type=NUMBER, name="shots", value=roll_info['shots'], help_text='The number of attacks we are rolling for.')
     ]),
     put_row([
-        pin.put_select(label="AP: ", options=[0, 1, 2, 3, 4, 5, 6], name="piercing", value=roll_info['piercing']), None,
-        pin.put_radio(label="Regenarator?", options=["No", "Yes"], name="regen", value=roll_info['regen'], inline = True), None,
-        pin.put_radio(label="Explode?", options=["No", "Yes"], name="explode", value=roll_info['explode'], inline = True)
+        pin.put_select(label="AP: ", options=[0, 1, 2, 3, 4, 5, 6], name="piercing", value=roll_info['piercing'], help_text='The armour piercing value of the weapon.'), None,
+        pin.put_radio(label="Regenarator?", options=["No", "Yes"], name="regen", value=roll_info['regen'], inline = True, help_text='Whether the defender ignores a wound on a 5+.'), None,
+        pin.put_radio(label="Explode?", options=["No", "Yes"], name="explode", value=roll_info['explode'], inline = True, help_text='Whether to roll two addition attacks when a 6 is rolled.')
     ]),
     put_row([
-        pin.put_radio(label="Calculation Method: ", name="method", options=["Probability", "Simulate"], value="Probability"), None,
-        pin.put_input(label="Histogram Buckets: ", name="buckets", type=NUMBER, value=5), None
+        pin.put_select(label="Cover: ", options=["None", "Light", "Heavy"], name="cover", value=roll_info['cover'], help_text='Whether the defenders are in any kind of cover.'), None,
+        pin.put_select(label="Blast: ", options=[1, 3, 6], name="blast", value=roll_info['blast'], help_text='The number of saves caused by each successful attack.'), None,
+        pin.put_select(label="Deadly: ", options=[1, 2, 3, 4, 5, 6], name="deadly", value=roll_info['deadly'], help_text='The number of wounds caused by each failed save.'), None,
+    ]),
+    put_row([
+        pin.put_select(label="Reroll On: ", options=[0, 1, 2, 3, 4, 5, 6], name="reroll", value=roll_info['reroll'], help_text='Rerolls the dice when at or below the number.'), None,
+        pin.put_input(label="Histogram Buckets: ", name="buckets", type=NUMBER, value=5, help_text='The number of histogram buckets to display.'), None
     ])]
 
 def update_inputs(info, input):
@@ -117,8 +136,7 @@ def update_scope(new_val):
         print_wounds(base_info)
 
 def update_scope_new(button):
-    with use_scope("buttons", clear=True):
-        put_buttons(buttons=["Reload"], onclick=update_scope_new, scope="buttons", outline=True)
+    print_header(True)
 
     with use_scope("wounds", clear=True):
         update_inputs(base_info, {'name': 'quality', 'value': pin.pin['quality']})
@@ -126,21 +144,21 @@ def update_scope_new(button):
         update_inputs(base_info, {'name': 'piercing', 'value': pin.pin['piercing']})
         update_inputs(base_info, {'name': 'regen', 'value': pin.pin['regen']})
         update_inputs(base_info, {'name': 'explode', 'value': pin.pin['explode']})
-        update_inputs(base_info, {'name': 'method', 'value': pin.pin['method']})
         update_inputs(base_info, {'name': 'shots', 'value': pin.pin['shots']})
         update_inputs(base_info, {'name': 'buckets', 'value': pin.pin['buckets']})
+        update_inputs(base_info, {'name': 'cover', 'value': pin.pin['cover']})
+        update_inputs(base_info, {'name': 'reroll', 'value': pin.pin['reroll']})
+        update_inputs(base_info, {'name': 'blast', 'value': pin.pin['blast']})
+        update_inputs(base_info, {'name': 'deadly', 'value': pin.pin['deadly']})
         print_wounds(base_info)
 
 def app():
-    put_row(print_header())
+    print_header(True)
     put_collapse("Input", put_inputs(base_info), open=True)
-    with use_scope("buttons", clear=True):
-        put_buttons(buttons=["Reload"], onclick=update_scope_new, scope="buttons", outline=True)
 
     while True:
-        new_val = pin.pin_wait_change(["quality", "defence", "piercing", "regen", "explode", "method", "shots", "buckets"])
-        with use_scope("buttons", clear=True):
-            put_buttons(buttons=["Reload"], onclick=update_scope_new, scope="buttons", outline=False)
+        new_val = pin.pin_wait_change(["quality", "defence", "piercing", "regen", "explode", "shots", "buckets", "cover", "reroll", "blast", "deadly"])
+        print_header(False)
 
 if __name__ == '__main__':
     start_server(app, port=os.environ.get('PORT', 8080))
